@@ -12,7 +12,7 @@ def set_windows_startup(enabled: bool) -> None:
         0,
         winreg.KEY_SET_VALUE,
     )
-    name = "MagisterNotifier"
+    name = "MagisterLive"
     try:
         if enabled:
             exe = sys.executable

@@ -29,12 +29,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MagisterNotifier-Windows
-          path: dist/MagisterNotifier.exe
+          name: MagisterLive-Windows
+          path: dist/MagisterLive.exe
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          name: Magister Notifier ${{ github.ref_name }}
-          files: dist/MagisterNotifier.exe
+          name: Magister Live ${{ github.ref_name }}
+          files: dist/MagisterLive.exe
           generate_release_notes: true

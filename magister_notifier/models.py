@@ -25,6 +25,20 @@ class Homework:
 
 
 @dataclass
+class ScheduleItem:
+    id: str
+    date: str
+    start: str
+    end: str
+    subject: str
+    description: str = ""
+    location: str = ""
+    teacher: str = ""
+    cancelled: bool = False
+    has_homework: bool = False
+
+
+@dataclass
 class NotificationRecord:
     id: str
     timestamp: str

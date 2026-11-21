@@ -16,7 +16,7 @@ class NotificationService:
                 notification.notify(
                     title=title,
                     message=message,
-                    app_name="Magister Notifier",
+                    app_name="Magister Live",
                     timeout=10,
                 )
             except Exception:

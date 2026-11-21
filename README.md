@@ -1,26 +1,33 @@
-# Magister Notifier
+# Magister Live
 
-[![Build and release Windows app](https://github.com/tureluur-ux/magister-notifier/actions/workflows/build-release.yml/badge.svg)](https://github.com/tureluur-ux/magister-notifier/actions/workflows/build-release.yml)
+[![Build and release Windows app](https://github.com/tureluur-ux/magister-live/actions/workflows/build-release.yml/badge.svg)](https://github.com/tureluur-ux/magister-live/actions/workflows/build-release.yml)
 
-Een moderne Windows-desktopapp in Python voor het volgen van cijfers, huiswerk en het rooster via Magister.
+Magister Live is een moderne Windows-desktopapp voor cijfers, huiswerk en het rooster. De app gebruikt een browsergebaseerde Magister/OpenID-Connect-login, versleutelde Windows-opslag voor OAuth-tokens en automatische synchronisatie.
 
 ## Download
 
-Download `MagisterNotifier.exe` vanaf de [GitHub Releases-pagina](https://github.com/tureluur-ux/magister-notifier/releases).
-De EXE is een zelfstandige Windows-applicatie en vereist geen geïnstalleerde Python-runtime.
+Download `MagisterLive.exe` via de [GitHub Releases-pagina](https://github.com/tureluur-ux/magister-live/releases).
+De EXE is standalone en vereist geen geïnstalleerde Python-runtime.
+
+## Inloggen
+
+1. Voer de Magister-school-URL in, bijvoorbeeld `schaersvoorde.magister.net`.
+2. Open de officiële Magister/Microsoft-loginpagina in je browser.
+3. Meld je aan via je schoolaccount.
+4. Magister Live ontvangt de beveiligde logincallback, slaat refresh- en access-tokens versleuteld lokaal op via Windows DPAPI en synchroniseert direct.
+
+Tokens worden automatisch vernieuwd waar de school-OIDC-configuratie dit ondersteunt. Er worden geen Magister-wachtwoorden in JSON opgeslagen.
 
 ## Installatie voor ontwikkeling
 
-Voorwaarde: Python 3.11 op Windows.
+Python 3.11 op Windows is vereist.
 
 ```powershell
 cd magister-notifier
-python -m venv .venv
+py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe main.py
 ```
-
-Het wachtwoord wordt niet opgeslagen. Schoolnaam en gebruikersnaam worden lokaal opgeslagen in `%LOCALAPPDATA%\magister_notifier\data.json`.
 
 ## Standalone EXE bouwen
 
@@ -28,16 +35,17 @@ Het wachtwoord wordt niet opgeslagen. Schoolnaam en gebruikersnaam worden lokaal
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-De uitvoer staat in `dist\MagisterNotifier.exe`. De EXE kan direct worden gekopieerd naar een andere Windows-PC; Windows hoeft Python niet te hebben.
+De uitvoer staat in `dist\MagisterLive.exe`.
 
 ## Functies
 
-- Inloggen met MagisterPy.
-- Cijfers, rooster en opdrachten ophalen.
-- Automatische synchronisatie elke vijf minuten.
-- Windows-meldingen en optioneel geluid.
+- Browsergebaseerde Magister-login met PKCE en Microsoft Entra-compatibiliteit.
+- Versleutelde lokale OAuth-tokenopslag met Windows DPAPI.
+- Automatisch tokenverversen.
+- Cijfers, gemiddelde per vak en cijferontwikkeling.
+- Weekrooster met tijden, lokalen, lessen, annuleringen en huiswerk.
+- Synchronisatie bij start en iedere vijf minuten.
+- Windows-notificaties bij nieuwe of gewijzigde cijfers.
 - Lokale meldinggeschiedenis.
-- Gemiddelden per vak.
-- Cijfergrafiek.
 - Excel-export.
-- Optioneel starten met Windows.
+- Optioneel starten met Windows en optioneel geluid.
