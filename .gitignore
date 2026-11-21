@@ -1,0 +1,9 @@
+.venv/
+dist/
+build/
+__pycache__/
+*.pyc
+*.spec.zip
+magisterpy*.whl
+magisterpy.zip
+wheel-inspect/

@@ -1,0 +1,1 @@
+"""Magister Notifier application package."""
