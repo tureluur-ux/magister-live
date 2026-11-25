@@ -7,21 +7,21 @@ from unittest.mock import Mock
 from magister_notifier.storage import JsonStore
 from magister_notifier.magister_client import MagisterClient
 from magister_notifier.models import ScheduleItem
-from magister_notifier.auth import MagisterBrowserAuth, BrowserLoginError
 
 
 class JsonStoreTests(unittest.TestCase):
     def test_school_url_is_normalized(self) -> None:
         self.assertEqual(
-            MagisterBrowserAuth.normalize_school_url("schaersvoorde.magister.net"),
-            "https://schaersvoorde.magister.net",
+            MagisterClient.normalize_school("schaersvoorde.magister.net"),
+            ("schaersvoorde.magister.net", "schaersvoorde"),
         )
         self.assertEqual(
-            MagisterBrowserAuth.normalize_school_url("https://schaersvoorde.magister.net/"),
-            "https://schaersvoorde.magister.net",
+            MagisterClient.normalize_school("schaersvoorde"),
+            ("schaersvoorde", "schaersvoorde"),
         )
-        with self.assertRaises(BrowserLoginError):
-            MagisterBrowserAuth.normalize_school_url("school")
+        with self.assertRaises(ValueError):
+            MagisterClient.normalize_school("school.example.org")
+
     def test_settings_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with patch("magister_notifier.storage.Path.home", return_value=Path(directory)):
@@ -41,6 +41,21 @@ class JsonStoreTests(unittest.TestCase):
         with patch("magister_notifier.magister_client.requests.get", return_value=response):
             schools = MagisterClient.search_schools("School")
         self.assertEqual(schools, ["School A", "School B"])
+
+    def test_login_uses_schaersvoorde_tenant(self) -> None:
+        with patch("MagisterPy.MagisterSession") as session_type:
+            session_type.return_value.login.return_value = True
+            client = MagisterClient(
+                "schaersvoorde",
+                "student-user",
+                "test-password",
+            )
+            self.assertTrue(client.login())
+            session_type.return_value.login.assert_called_once_with(
+                school_name="schaersvoorde",
+                username="student-user",
+                password="test-password",
+            )
 
     def test_schedule_item_round_trip(self) -> None:
         item = ScheduleItem(

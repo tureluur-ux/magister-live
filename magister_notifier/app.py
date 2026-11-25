@@ -13,8 +13,6 @@ from .config import AppConfig
 from .exporter import export_grades
 from .magister_client import MagisterClient
 from .models import Grade, Homework, NotificationRecord, ScheduleItem
-from .auth import MagisterBrowserAuth, SecureTokenStore
-from .magister import MagisterApi, MagisterApiError
 from .notifier import WindowsNotifier
 from .startup import set_windows_startup
 from .storage import JsonStore
@@ -47,17 +45,16 @@ class MagisterLiveApp(ctk.CTk):
         self.config = AppConfig.load(self.store)
         self.notification_service = WindowsNotifier(self.config.sound)
         self.session: Optional[MagisterClient] = None
-        self.api: Optional[MagisterApi] = None
         self.sync_running = False
         self.week_offset = 0
         self.school_search_after = ""
+        self.sync_status_labels: list[ctk.CTkLabel] = []
 
         self.container = ctk.CTkFrame(self, fg_color="transparent")
         self.container.pack(fill="both", expand=True)
         self.login_frame = self._build_login()
         self.app_frame = self._build_app()
         self.login_frame.pack(fill="both", expand=True)
-        self.after(100, self._restore_browser_session)
         self.after(300_000, self._scheduled_sync)
 
     def _build_login(self) -> ctk.CTkFrame:
@@ -73,7 +70,6 @@ class MagisterLiveApp(ctk.CTk):
         self.login_card.place(relx=0.5, rely=0.5, anchor="center")
         self.login_step = 1
         self._show_login_step()
-        frame.bind_all("<Return>", lambda event: self._login_enter())
         return frame
 
     def _show_login_step(self) -> None:
@@ -103,10 +99,11 @@ class MagisterLiveApp(ctk.CTk):
             self.school_entry.pack(pady=(6, 12))
             if self.config.school:
                 self.school_entry.insert(0, self.config.school)
+            self.school_entry.bind("<Return>", lambda event: self._continue_to_username())
             self.login_status = ctk.CTkLabel(self.login_card, text="", text_color=self.COLORS["danger"])
             self.login_status.pack()
             self.login_button = ctk.CTkButton(
-                self.login_card, text="Inloggen in browser", height=46, fg_color=self.COLORS["accent"],
+                self.login_card, text="Doorgaan", height=46, fg_color=self.COLORS["accent"],
                 hover_color=self.COLORS["accent_hover"], command=self._continue_to_username,
             )
             self.login_button.pack(pady=(14, 34), padx=55, fill="x")
@@ -147,7 +144,8 @@ class MagisterLiveApp(ctk.CTk):
             self.login_status.configure(text="Kies eerst je school.")
             return
         self.selected_school = self.school_entry.get().strip()
-        self.login()
+        self.login_step = 2
+        self._show_login_step()
 
     def _continue_to_password(self) -> None:
         if not self.username_entry.get().strip():
@@ -290,8 +288,9 @@ class MagisterLiveApp(ctk.CTk):
         header = ctk.CTkFrame(parent, fg_color="transparent")
         ctk.CTkLabel(header, text=title, font=ctk.CTkFont(size=25, weight="bold")).pack(anchor="w")
         ctk.CTkLabel(header, text=subtitle, text_color=self.COLORS["muted"]).pack(anchor="w", pady=(2, 0))
-        self.sync_status = ctk.CTkLabel(header, text="Nog niet gesynchroniseerd", text_color=self.COLORS["muted"])
-        self.sync_status.place(relx=1.0, rely=0.1, anchor="ne")
+        status = ctk.CTkLabel(header, text="Nog niet gesynchroniseerd", text_color=self.COLORS["muted"])
+        status.place(relx=1.0, rely=0.1, anchor="ne")
+        self.sync_status_labels.append(status)
         ctk.CTkButton(
             header,
             text="Nu synchroniseren",
@@ -376,26 +375,31 @@ class MagisterLiveApp(ctk.CTk):
 
     def login(self) -> None:
         school = getattr(self, "selected_school", "").strip()
-        if not school and hasattr(self, "school_entry"):
-            school = self.school_entry.get().strip()
         if not school:
-            self.login_status.configure(text="Voer je Magister-school-URL in.")
+            self.login_status.configure(text="Voer eerst een Magister-school-URL in.")
             return
-        self.login_status.configure(text="Browser wordt geopend voor veilig inloggen...")
+        username = getattr(self, "selected_username", "").strip()
+        password_entry = getattr(self, "password_entry", None)
+        password = password_entry.get() if password_entry else ""
+        if not username or not password:
+            self.login_status.configure(text="Vul je gebruikersnaam en wachtwoord in.")
+            return
+        self.login_status.configure(text="Veilig aanmelden bij Magister...")
         self.login_button.configure(state="disabled")
 
         def run() -> None:
             try:
-                token_store = SecureTokenStore(self.store.directory)
-                auth = MagisterBrowserAuth(school, token_store)
-                tokens = auth.login()
-                school_url = tokens["school_url"]
-                self.api = MagisterApi(school_url, tokens["access_token"])
-                self.config.school = school_url
+                host, tenant = MagisterClient.normalize_school(school)
+                client = MagisterClient(tenant, username, password)
+                if not client.login():
+                    raise RuntimeError("Inloggen mislukt. Controleer de school, gebruikersnaam en wachtwoord.")
+                self.session = client
+                self.config.school = host
+                self.config.username = username
                 self.config.save(self.store)
                 self.after(0, self._show_app)
             except Exception as exc:
-                self.after(0, lambda: self._login_failed(str(exc)))
+                self.after(0, lambda error=str(exc): self._login_failed(error))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -412,41 +416,18 @@ class MagisterLiveApp(ctk.CTk):
         self._refresh_all(cached_grades, cached_schedule, cached_notifications)
         self.manual_sync()
 
-    def _restore_browser_session(self) -> None:
-        token_store = SecureTokenStore(self.store.directory)
-        tokens = token_store.load()
-        school_url = tokens.get("school_url")
-        access_token = tokens.get("access_token")
-        if not school_url or not access_token:
-            return
-
-        def run() -> None:
-            try:
-                auth = MagisterBrowserAuth(school_url, token_store)
-                try:
-                    refreshed = auth.refresh()
-                    access_token_value = refreshed["access_token"]
-                except Exception:
-                    access_token_value = access_token
-                self.api = MagisterApi(school_url, access_token_value)
-                self.config.school = school_url
-                self.after(0, self._show_app)
-            except Exception:
-                return
-
-        threading.Thread(target=run, daemon=True).start()
-
     def manual_sync(self) -> None:
-        if not self.api or self.sync_running:
+        if not self.session or self.sync_running:
             return
         self.sync_running = True
-        if hasattr(self, "sync_status"):
-            self.sync_status.configure(text="Synchroniseren...")
+        for label in self.sync_status_labels:
+            if label.winfo_exists():
+                label.configure(text="Synchroniseren...", text_color=self.COLORS["muted"])
 
         def run() -> None:
             try:
-                grades = self.api.grades()
-                schedule = self.api.schedule()
+                grades = self.session.fetch_grades()
+                schedule = self.session.fetch_schedule()
                 homework = [
                     Homework(
                         id=item.id,
@@ -461,37 +442,8 @@ class MagisterLiveApp(ctk.CTk):
                     if item.has_homework
                 ]
                 self._process_results(grades, homework, schedule)
-            except MagisterApiError as exc:
-                if str(exc) != "TOKEN_EXPIRED":
-                    self.after(0, lambda: self._sync_failed(str(exc)))
-                else:
-                    try:
-                        token_store = SecureTokenStore(self.store.directory)
-                        auth = MagisterBrowserAuth(self.config.school, token_store)
-                        refreshed = auth.refresh()
-                        self.api = MagisterApi(refreshed["school_url"], refreshed["access_token"])
-                        grades = self.api.grades()
-                        schedule = self.api.schedule()
-                        homework = [
-                            Homework(
-                                id=item.id,
-                                subject=item.subject,
-                                description=item.description or "Huiswerk",
-                                start=item.start,
-                                end=item.end,
-                                location=item.location,
-                                cancelled=item.cancelled,
-                            )
-                            for item in schedule
-                            if item.has_homework
-                        ]
-                        self._process_results(grades, homework, schedule)
-                    except Exception as refresh_error:
-                        self.after(0, lambda: self._sync_failed(
-                            f"Login opnieuw vereist: {refresh_error}"
-                        ))
             except Exception as exc:
-                self.after(0, lambda: self._sync_failed(str(exc)))
+                self.after(0, lambda error=str(exc): self._sync_failed(error))
             finally:
                 self.sync_running = False
 
@@ -502,8 +454,9 @@ class MagisterLiveApp(ctk.CTk):
         self.after(300_000, self._scheduled_sync)
 
     def _sync_failed(self, message: str) -> None:
-        if hasattr(self, "sync_status"):
-            self.sync_status.configure(text=f"Sync mislukt: {message}", text_color=self.COLORS["danger"])
+        for label in self.sync_status_labels:
+            if label.winfo_exists():
+                label.configure(text=f"Sync mislukt: {message}", text_color=self.COLORS["danger"])
 
     def _process_results(self, grades: list[Grade], homework: list[Homework], schedule: list[ScheduleItem]) -> None:
         old_items = self.store.get("grades", [])
@@ -548,11 +501,12 @@ class MagisterLiveApp(ctk.CTk):
 
     def _refresh_all(self, grades: list[Grade], schedule: list[ScheduleItem], records: list[dict]) -> None:
         now = datetime.now()
-        if hasattr(self, "sync_status"):
-            self.sync_status.configure(
-                text=f"Laatst gesynchroniseerd {now.strftime('%H:%M:%S')}",
-                text_color=self.COLORS["muted"],
-            )
+        for label in self.sync_status_labels:
+            if label.winfo_exists():
+                label.configure(
+                    text=f"Laatst gesynchroniseerd {now.strftime('%H:%M:%S')}",
+                    text_color=self.COLORS["muted"],
+                )
         self._refresh_grades(grades)
         self._refresh_schedule(schedule)
         self._refresh_notifications(records)

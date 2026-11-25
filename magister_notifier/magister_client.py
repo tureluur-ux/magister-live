@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 import requests
 from uuid import uuid4
 
@@ -13,6 +14,25 @@ class MagisterClient:
         self.username = username
         self.password = password
         self._session = None
+
+    @staticmethod
+    def normalize_school(value: str) -> tuple[str, str]:
+        value = value.strip()
+        if not value:
+            raise ValueError("Voer de schoolnaam of Magister-school-URL in.")
+        candidate = value if "://" in value else f"https://{value}"
+        parsed = urlparse(candidate)
+        host = (parsed.hostname or "").lower()
+        if host.endswith(".magister.net"):
+            tenant = host.removesuffix(".magister.net")
+            if not tenant or "." in tenant:
+                raise ValueError("Controleer de Magister-school-URL.")
+            return host, tenant
+        if "." not in value and " " not in value:
+            return value, value
+        raise ValueError(
+            "Gebruik een Magister-school-URL, bijvoorbeeld schaersvoorde.magister.net."
+        )
 
     def login(self) -> bool:
         try:

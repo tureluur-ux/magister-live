@@ -7,7 +7,10 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['plyer.platforms.win.notification'],
+    hiddenimports=[
+        'plyer.platforms.win.notification',
+        'MagisterPy',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

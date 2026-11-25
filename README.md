@@ -2,7 +2,7 @@
 
 [![Build and release Windows app](https://github.com/tureluur-ux/magister-live/actions/workflows/build-release.yml/badge.svg)](https://github.com/tureluur-ux/magister-live/actions/workflows/build-release.yml)
 
-Magister Live is een moderne Windows-desktopapp voor cijfers, huiswerk en het rooster. De app gebruikt een browsergebaseerde Magister/OpenID-Connect-login, versleutelde Windows-opslag voor OAuth-tokens en automatische synchronisatie.
+Magister Live is een moderne Windows-desktopapp voor cijfers, huiswerk en het rooster. De app gebruikt de werkende Magister-loginflow en synchroniseert automatisch met je Magister-account.
 
 ## Download
 
@@ -12,11 +12,11 @@ De EXE is standalone en vereist geen geïnstalleerde Python-runtime.
 ## Inloggen
 
 1. Voer de Magister-school-URL in, bijvoorbeeld `schaersvoorde.magister.net`.
-2. Open de officiële Magister/Microsoft-loginpagina in je browser.
-3. Meld je aan via je schoolaccount.
-4. Magister Live ontvangt de beveiligde logincallback, slaat refresh- en access-tokens versleuteld lokaal op via Windows DPAPI en synchroniseert direct.
+2. Vul je Magister-gebruikersnaam in.
+3. Vul je wachtwoord in.
+4. Magister Live logt in en synchroniseert cijfers, huiswerk en rooster direct.
 
-Tokens worden automatisch vernieuwd waar de school-OIDC-configuratie dit ondersteunt. Er worden geen Magister-wachtwoorden in JSON opgeslagen.
+Het wachtwoord wordt nooit opgeslagen. Alleen school-URL en gebruikersnaam worden lokaal opgeslagen.
 
 ## Installatie voor ontwikkeling
 
@@ -39,9 +39,8 @@ De uitvoer staat in `dist\MagisterLive.exe`.
 
 ## Functies
 
-- Browsergebaseerde Magister-login met PKCE en Microsoft Entra-compatibiliteit.
-- Versleutelde lokale OAuth-tokenopslag met Windows DPAPI.
-- Automatisch tokenverversen.
+- Magister-login via de schooltenant en de officiële Magister-accountlogin.
+- Het wachtwoord wordt alleen tijdens het inloggen in het geheugen gebruikt en niet opgeslagen.
 - Cijfers, gemiddelde per vak en cijferontwikkeling.
 - Weekrooster met tijden, lokalen, lessen, annuleringen en huiswerk.
 - Synchronisatie bij start en iedere vijf minuten.
