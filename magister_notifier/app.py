@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox
 from .config import AppConfig
 from .exporter import export_grades
 from .magister_client import MagisterClient
-from .models import Grade, Homework, NotificationRecord, ScheduleItem
+from .models import Grade, Homework, NotificationRecord, ScheduleItem, schedule_item_from_dict
 from .notifier import WindowsNotifier
 from .startup import set_windows_startup
 from .storage import JsonStore
@@ -411,7 +411,11 @@ class MagisterLiveApp(ctk.CTk):
         self.login_frame.pack_forget()
         self.app_frame.pack(fill="both", expand=True)
         cached_grades = [Grade(**item) for item in self.store.get("grades", [])]
-        cached_schedule = [ScheduleItem(**item) for item in self.store.get("schedule", [])]
+        cached_schedule = [
+            schedule_item_from_dict(item)
+            for item in self.store.get("schedule", [])
+            if isinstance(item, dict)
+        ]
         cached_notifications = self.store.get("notifications", [])
         self._refresh_all(cached_grades, cached_schedule, cached_notifications)
         self.manual_sync()
@@ -536,7 +540,11 @@ class MagisterLiveApp(ctk.CTk):
             self.grade_card.value_label.configure(text=f"{latest.subject}  {latest.value:.1f}".replace(".", ","))
 
     def _refresh_schedule_cache(self) -> None:
-        schedule = [ScheduleItem(**item) for item in self.store.get("schedule", [])]
+        schedule = [
+            schedule_item_from_dict(item)
+            for item in self.store.get("schedule", [])
+            if isinstance(item, dict)
+        ]
         self._refresh_schedule(schedule)
 
     def _week_dates(self) -> list[datetime]:

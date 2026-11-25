@@ -38,6 +38,39 @@ class ScheduleItem:
     has_homework: bool = False
 
 
+def schedule_item_from_dict(data: dict) -> ScheduleItem:
+    """Load current schedule data and migrate entries saved by older releases."""
+    if "start" in data and "subject" in data:
+        allowed = {
+            "id", "date", "start", "end", "subject", "description",
+            "location", "teacher", "cancelled", "has_homework",
+        }
+        values = {key: value for key, value in data.items() if key in allowed}
+        return ScheduleItem(**values)
+
+    start = str(data.get("Start") or "")
+    subjects = data.get("Vakken") or []
+    teachers = data.get("Docenten") or []
+    subject = "Overig"
+    if subjects and isinstance(subjects[0], dict):
+        subject = str(subjects[0].get("Naam") or subjects[0].get("Omschrijving") or subject)
+    teacher = ""
+    if teachers and isinstance(teachers[0], dict):
+        teacher = str(teachers[0].get("Naam") or "")
+    return ScheduleItem(
+        id=str(data.get("Id") or data.get("OpdrachtId") or f"legacy-{start}-{subject}"),
+        date=start.split("T")[0].split(" ")[0],
+        start=start,
+        end=str(data.get("Einde") or ""),
+        subject=subject,
+        description=str(data.get("Omschrijving") or ""),
+        location=str(data.get("Lokatie") or ""),
+        teacher=teacher,
+        cancelled=bool(data.get("cancelled", False)),
+        has_homework=bool(data.get("OpdrachtId")),
+    )
+
+
 @dataclass
 class NotificationRecord:
     id: str

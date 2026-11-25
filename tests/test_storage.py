@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 from magister_notifier.storage import JsonStore
 from magister_notifier.magister_client import MagisterClient
-from magister_notifier.models import ScheduleItem
+from magister_notifier.models import ScheduleItem, schedule_item_from_dict
 
 
 class JsonStoreTests(unittest.TestCase):
@@ -70,6 +70,23 @@ class JsonStoreTests(unittest.TestCase):
         restored = ScheduleItem(**item.__dict__)
         self.assertEqual(restored.subject, "Informatica")
         self.assertTrue(restored.has_homework)
+
+    def test_migrates_legacy_magister_schedule_cache(self) -> None:
+        item = schedule_item_from_dict({
+            "Id": 42,
+            "Start": "2026-11-25T08:30:00",
+            "Einde": "2026-11-25T09:20:00",
+            "Omschrijving": "Les",
+            "Lokatie": "Lokaal 12",
+            "Vakken": [{"Naam": "Informatica"}],
+            "Docenten": [{"Naam": "Docent"}],
+            "OpdrachtId": 123,
+        })
+        self.assertEqual(item.id, "42")
+        self.assertEqual(item.date, "2026-11-25")
+        self.assertEqual(item.subject, "Informatica")
+        self.assertEqual(item.location, "Lokaal 12")
+        self.assertTrue(item.has_homework)
 
 
 if __name__ == "__main__":
